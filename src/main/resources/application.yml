@@ -1,0 +1,7 @@
+server:
+  server.contextPath: /springIntegration
+  port: 8085
+
+      
+      
+

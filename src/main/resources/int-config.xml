@@ -1,0 +1,132 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-jms="http://www.springframework.org/schema/integration/jms"
+	xmlns:int-stream="http://www.springframework.org/schema/integration/stream"
+	xmlns:int-event="http://www.springframework.org/schema/integration/event"
+	xmlns:int-http="http://www.springframework.org/schema/integration/http"
+	xmlns:int-ws="http://www.springframework.org/schema/integration/ws"
+	xmlns:int-mongodb="http://www.springframework.org/schema/integration/mongodb"
+	xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+	xmlns:int-groovy="http://www.springframework.org/schema/integration/groovy"
+	xmlns:int-mail="http://www.springframework.org/schema/integration/mail"
+	xmlns:oxm="http://www.springframework.org/schema/oxm" xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+        http://www.springframework.org/schema/integration/jms http://www.springframework.org/schema/integration/jms/spring-integration-jms.xsd
+        http://www.springframework.org/schema/integration/stream http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd
+        http://www.springframework.org/schema/integration/event http://www.springframework.org/schema/integration/event/spring-integration-event.xsd
+        http://www.springframework.org/schema/integration/http http://www.springframework.org/schema/integration/http/spring-integration-http.xsd
+        http://www.springframework.org/schema/integration/ws http://www.springframework.org/schema/integration/ws/spring-integration-ws.xsd
+        http://www.springframework.org/schema/data/mongo http://www.springframework.org/schema/data/mongo/spring-mongo.xsd
+        http://www.springframework.org/schema/integration/groovy http://www.springframework.org/schema/integration/groovy/spring-integration-groovy.xsd
+        http://www.springframework.org/schema/integration/mongodb http://www.springframework.org/schema/integration/mongodb/spring-integration-mongodb.xsd
+        http://www.springframework.org/schema/integration/mail http://www.springframework.org/schema/integration/mail/spring-integration-mail.xsd
+        http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+        http://www.springframework.org/schema/oxm http://www.springframework.org/schema/oxm/spring-oxm.xsd">
+
+	<context:component-scan base-package="mishra.buxar.springintegration" />
+
+	<!-- System entry -->
+	<int-stream:stdin-channel-adapter id="consoleIn"
+		channel="systemEntry">
+		<int:poller fixed-delay="1000" max-messages-per-poll="1" />
+	</int-stream:stdin-channel-adapter>
+
+	<int:channel id="systemEntry">
+		<int:interceptors>
+			<int:wire-tap channel="requestLoggingChannel" />
+		</int:interceptors>
+	</int:channel>
+
+	<int:logging-channel-adapter id="requestLoggingChannel"
+		expression="'User selection: '.concat(payload)" level="INFO" />
+
+	<int:filter input-channel="systemEntry" output-channel="validEntriesChannel"
+		ref="entryFilter" method="filterInvalidEnteries" discard-channel="invalidEntries" />
+
+
+	<!-- Invalid entries (show on console) -->
+	<int:chain input-channel="invalidEntries">
+		<int:transformer ref="discardsTransformer" />
+		<int-stream:stdout-channel-adapter
+			id="consoleOut" append-newline="true" />
+	</int:chain>
+
+
+	<!-- Valid entries (continue processing) -->
+	<int:channel id="validEntriesChannel" />
+	<int:router input-channel="validEntriesChannel" ref="cinemaRedirector" />
+
+
+	<!-- Quit message (shutdown application) -->
+	<!-- <int:chain input-channel="quitRequestChannel"> <int:service-activator 
+		ref="shutdownActivator" /> <int-event:outbound-channel-adapter /> </int:chain> -->
+
+
+	<!-- Continue processing (get data) -->
+
+	<!-- Pantages Theater request -->
+	<!-- <int:chain input-channel="pantagesRequestChannel"> <int:transformer 
+		ref="soapRequestTransformer" /> <int-ws:outbound-gateway uri="http://localhost:8080/ws-films/films" 
+		marshaller="marshaller" unmarshaller="marshaller" /> <int:service-activator 
+		ref="soapResponseHandler" /> <int-stream:stdout-channel-adapter id="consoleOut" 
+		append-newline="true" /> </int:chain> <oxm:jaxb2-marshaller id="marshaller" 
+		context-path="mishra.buxar.springintegration.ws.types" /> -->
+
+
+	<!-- Egyptian Theater request -->
+
+	<int:header-enricher input-channel="egyptianResponseChannel">
+		<int:header name="expectedResponseType">
+			<int-groovy:script>
+                <![CDATA[
+                    new ParameterizedTypeReference<List<mishra.buxar.springintegration.model.Film>>() {}
+                ]]>
+			</int-groovy:script>
+		</int:header>
+	</int:header-enricher>
+
+	<int:chain input-channel="egyptianRequestChannel">
+		<int-http:outbound-gateway url="http://localhost:8084/films"
+			 http-method="GET"  expected-response-type-expression="byte[]"
+                  message-converters="converters"/>
+                  
+		<int:json-to-object-transformer
+			type="mishra.buxar.springintegration.model.Film[]" />
+		<int:service-activator ref="restResponseHandler" />
+		<int-stream:stdout-channel-adapter
+			id="consoleOut" append-newline="true" />
+	</int:chain>
+
+<bean id="converters" class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter" />
+
+
+
+	<int:chain input-channel="errorChannel">
+		<int:service-activator ref="mongodbRequestHandler" />
+		<int-mongodb:outbound-channel-adapter
+			id="mongodbAdapter" collection-name="failedRequests" mongodb-factory="mongoDbFactory" />
+	</int:chain>
+
+	<!-- <int:chain input-channel="errorChannel"> <int:service-activator ref="mailRequestHandler" 
+		/> <int-mail:inbound-channel-adapter id="mailSender" store-uri="imaps://prakashbxr85@gmail.com:Naster#43@imap.gmail.com/INBOX" 
+		java-mail-properties="javaMailProperties" channel="receiveChannel" should-delete-messages="true" 
+		auto-startup="true"> </int-mail:inbound-channel-adapter> </int:chain> <int:channel 
+		id="receiveChannel" /> <int:service-activator input-channel="receiveChannel"> 
+		<bean class="org.springframework.integration.mail.config.GoogleTest.SampleReceiver" 
+		/> </int:service-activator> <util:properties id="javaMailProperties"> <prop 
+		key="mail.imap.socketFactory.class">javax.net.ssl.SSLSocketFactory</prop> 
+		<prop key="mail.imap.socketFactory.fallback">false</prop> <prop key="mail.store.protocol">imaps</prop> 
+		<prop key="mail.debug">false</prop> </util:properties> -->
+	<mongo:db-factory id="mongoDbFactory" dbname="jcgdb" />
+
+
+	<bean id="mongoDbTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+		<constructor-arg ref="mongoDbFactory" />
+	</bean>
+
+</beans>

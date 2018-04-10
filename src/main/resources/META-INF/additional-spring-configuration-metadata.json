@@ -1,0 +1,47 @@
+{"properties": [
+  {
+    "name": "spring.admin.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.admin.enabled'"
+  },
+  {
+    "name": "server.server.context-path",
+    "type": "java.lang.String",
+    "description": "A description for 'server.server.context-path'"
+  },
+  {
+    "name": "spring.application.admin.default-domain",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.application.admin.default-domain'"
+  },
+  {
+    "name": "spring.jmx.endpoints",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.jmx.endpoints'"
+  },
+  {
+    "name": "spring.jmx.domain",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.jmx.domain'"
+  },
+  {
+    "name": "spring.jmx.unique-names",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.jmx.unique-names'"
+  },
+  {
+    "name": "spring.admin.jmx-name",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.admin.jmx-name'"
+  },
+  {
+    "name": "spring.endpoints.jmx.domain",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.endpoints.jmx.domain'"
+  },
+  {
+    "name": "spring.endpoints.jmx.unique-names",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.endpoints.jmx.unique-names'"
+  }
+]}
